@@ -1,0 +1,504 @@
+// ========================================================
+// JalRakshak PostgreSQL Database Schema (Prisma ORM)
+// Primary Relational Store & Source of Truth
+// ========================================================
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// --------------------------------------------------------
+// Enums
+// --------------------------------------------------------
+
+enum Role {
+  STUDENT
+  TEACHER
+  ADMIN
+}
+
+enum Difficulty {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum MissionCategory {
+  GROUNDWATER
+  GROUNDWATER_CONSERVATION
+  RAINWATER_HARVESTING
+  SUSTAINABLE_AGRICULTURE
+  IRRIGATION
+  IRRIGATION_EFFICIENCY
+  WATER_QUALITY
+  WATER_POLLUTION
+  POLLUTION_PREVENTION
+  SUSTAINABLE_USAGE
+  COMMUNITY_AWARENESS
+  DROUGHT_MANAGEMENT
+}
+
+enum MissionStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}
+
+enum TaskType {
+  COMPLETE_SIMULATION
+  ACHIEVE_STORAGE_THRESHOLD
+  IMPROVE_SUSTAINABILITY_SCORE
+  USE_DRIP_IRRIGATION
+  BUILD_CONSERVATION_STRUCTURE
+  COMPLETE_WATER_QUALITY_CHALLENGE
+  REDUCE_GROUNDWATER_EXTRACTION
+  COMPLETE_QUIZ
+}
+
+enum ChallengeType {
+  DAILY
+  WEEKLY
+  LIMITED_TIME
+}
+
+// --------------------------------------------------------
+// User Model (Authentication & Roles)
+// --------------------------------------------------------
+
+model User {
+  id           String             @id @default(uuid())
+  name         String
+  email        String             @unique
+  passwordHash String
+  role         Role               @default(STUDENT)
+  isActive     Boolean            @default(true)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  memberships               VillageMembership[]
+  missionProgress           MissionProgress[]
+  simulationRuns            SimulationRun[]
+  refreshTokens             RefreshToken[]
+  studentsAssigned          TeacherStudentAssignment[] @relation("TeacherAssignments")
+  teachersAssigned          TeacherStudentAssignment[] @relation("StudentAssignments")
+  userXP                    UserXP?
+  xpTransactions            XPTransaction[]
+  userAchievements          UserAchievement[]
+  challengeParticipations   ChallengeParticipation[]
+  taskProgress              MissionTaskProgress[]
+  assignedMissionsByTeacher TeacherMissionAssignment[] @relation("TeacherMissionAssignments")
+  receivedMissionAssignments TeacherMissionAssignment[] @relation("StudentMissionAssignments")
+
+  @@index([email])
+  @@index([role])
+  @@index([isActive])
+  @@map("users")
+}
+
+// --------------------------------------------------------
+// Refresh Token Model (Session Security & Rotation)
+// --------------------------------------------------------
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  isRevoked Boolean  @default(false)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@map("refresh_tokens")
+}
+
+// --------------------------------------------------------
+// Village Model (Virtual Simulation Environments)
+// --------------------------------------------------------
+
+model Village {
+  id          String   @id @default(uuid())
+  name        String
+  description String   @db.Text
+  region      String
+  district    String?
+  state       String?
+  country     String   @default("India")
+  population  Int?
+  latitude    Float?
+  longitude   Float?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  memberships        VillageMembership[]
+  simulationRuns     SimulationRun[]
+  groundwaterRecords GroundwaterRecord[]
+
+  @@index([region])
+  @@index([state])
+  @@index([district])
+  @@map("villages")
+}
+
+// --------------------------------------------------------
+// Village Membership (User-Village Enrollment)
+// --------------------------------------------------------
+
+model VillageMembership {
+  id        String   @id @default(uuid())
+  userId    String
+  villageId String
+  joinedAt  DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  village Village @relation(fields: [villageId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, villageId])
+  @@index([userId])
+  @@index([villageId])
+  @@map("village_memberships")
+}
+
+// --------------------------------------------------------
+// Teacher-Student Assignment (Classroom Authorization)
+// --------------------------------------------------------
+
+model TeacherStudentAssignment {
+  id         String   @id @default(uuid())
+  teacherId  String
+  studentId  String
+  assignedAt DateTime @default(now())
+
+  teacher User @relation("TeacherAssignments", fields: [teacherId], references: [id], onDelete: Cascade)
+  student User @relation("StudentAssignments", fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([teacherId, studentId])
+  @@index([teacherId])
+  @@index([studentId])
+  @@map("teacher_student_assignments")
+}
+
+// --------------------------------------------------------
+// Educational Mission Model (Curriculum & Quests)
+// --------------------------------------------------------
+
+model Mission {
+  id                       String          @id @default(uuid())
+  title                    String
+  description              String          @db.Text
+  difficulty               Difficulty      @default(INTERMEDIATE)
+  category                 MissionCategory
+  points                   Int             @default(100)
+  xpReward                 Int             @default(100)
+  estimatedDurationMinutes Int             @default(30)
+  learningObjectives       Json?
+  instructions             String?         @db.Text
+  completionCriteria       Json?
+  requiredLevel            Int             @default(1)
+  isActive                 Boolean         @default(true)
+  createdAt                DateTime        @default(now())
+  updatedAt                DateTime        @updatedAt
+
+  progressRecords          MissionProgress[]
+  tasks                    MissionTask[]
+  teacherAssignments       TeacherMissionAssignment[]
+
+  @@index([category])
+  @@index([difficulty])
+  @@index([requiredLevel])
+  @@map("missions")
+}
+
+// --------------------------------------------------------
+// Mission Task Model (Sub-Tasks & Evaluation Rules)
+// --------------------------------------------------------
+
+model MissionTask {
+  id             String                @id @default(uuid())
+  missionId      String
+  title          String
+  description    String                @db.Text
+  taskType       TaskType
+  orderIndex     Int                   @default(0)
+  targetCriteria Json                  // Structured evaluation rules
+  xpReward       Int                   @default(50)
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  mission        Mission               @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  progress       MissionTaskProgress[]
+
+  @@index([missionId])
+  @@index([taskType])
+  @@map("mission_tasks")
+}
+
+// --------------------------------------------------------
+// Mission Task Progress (Student Task-Level Completion)
+// --------------------------------------------------------
+
+model MissionTaskProgress {
+  id             String      @id @default(uuid())
+  taskId         String
+  userId         String
+  isCompleted    Boolean     @default(false)
+  completedAt    DateTime?
+  submissionData Json?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  task           MissionTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, taskId])
+  @@index([userId])
+  @@index([taskId])
+  @@map("mission_task_progress")
+}
+
+// --------------------------------------------------------
+// Mission Progress (Student Mission Tracking)
+// --------------------------------------------------------
+
+model MissionProgress {
+  id          String        @id @default(uuid())
+  userId      String
+  missionId   String
+  status      MissionStatus @default(IN_PROGRESS)
+  progress    Float         @default(0.0) // 0.0 to 100.0 percentage
+  score       Int           @default(0)
+  completedAt DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mission Mission @relation(fields: [missionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, missionId])
+  @@index([userId, status])
+  @@index([missionId])
+  @@map("mission_progress")
+}
+
+// --------------------------------------------------------
+// User XP & Level State (Gamification Profile)
+// --------------------------------------------------------
+
+model UserXP {
+  id           String   @id @default(uuid())
+  userId       String   @unique
+  totalXP      Int      @default(0)
+  currentLevel Int      @default(1)
+  levelTitle   String   @default("Water Explorer")
+  updatedAt    DateTime @updatedAt
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([totalXP])
+  @@index([currentLevel])
+  @@map("user_xp")
+}
+
+// --------------------------------------------------------
+// XP Transaction Audit Ledger
+// --------------------------------------------------------
+
+model XPTransaction {
+  id         String   @id @default(uuid())
+  userId     String
+  amount     Int
+  reason     String
+  sourceType String   // 'MISSION', 'TASK', 'ACHIEVEMENT', 'CHALLENGE', 'QUIZ'
+  sourceId   String?  // Reference identifier
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, sourceType, sourceId])
+  @@index([userId])
+  @@index([sourceType, sourceId])
+  @@index([createdAt])
+  @@map("xp_transactions")
+}
+
+// --------------------------------------------------------
+// Achievement Catalog
+// --------------------------------------------------------
+
+model Achievement {
+  id              String            @id @default(uuid())
+  code            String            @unique
+  name            String
+  description     String            @db.Text
+  iconIdentifier  String            @default("award")
+  xpReward        Int               @default(100)
+  unlockCondition Json
+  isActive        Boolean           @default(true)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  userAchievements UserAchievement[]
+
+  @@index([code])
+  @@map("achievements")
+}
+
+// --------------------------------------------------------
+// User Achievement Unlock Records
+// --------------------------------------------------------
+
+model UserAchievement {
+  id            String      @id @default(uuid())
+  userId        String
+  achievementId String
+  unlockedAt    DateTime    @default(now())
+
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievement   Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, achievementId])
+  @@index([userId])
+  @@index([achievementId])
+  @@map("user_achievements")
+}
+
+// --------------------------------------------------------
+// Daily / Weekly Challenges
+// --------------------------------------------------------
+
+model Challenge {
+  id             String                   @id @default(uuid())
+  title          String
+  description    String                   @db.Text
+  challengeType  ChallengeType            @default(DAILY)
+  xpReward       Int                      @default(150)
+  criteria       Json
+  startDate      DateTime
+  endDate        DateTime
+  isActive       Boolean                  @default(true)
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+
+  participations ChallengeParticipation[]
+
+  @@index([challengeType])
+  @@index([startDate, endDate])
+  @@index([isActive])
+  @@map("challenges")
+}
+
+// --------------------------------------------------------
+// Challenge Participation
+// --------------------------------------------------------
+
+model ChallengeParticipation {
+  id          String    @id @default(uuid())
+  userId      String
+  challengeId String
+  isCompleted Boolean   @default(false)
+  completedAt DateTime?
+  joinedAt    DateTime  @default(now())
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  challenge   Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, challengeId])
+  @@index([userId])
+  @@index([challengeId])
+  @@map("challenge_participations")
+}
+
+// --------------------------------------------------------
+// Progression Level Hierarchy Configuration
+// --------------------------------------------------------
+
+model ProgressionLevel {
+  level     Int      @id
+  title     String
+  minXP     Int      @unique
+  perks     String?
+  createdAt DateTime @default(now())
+
+  @@map("progression_levels")
+}
+
+// --------------------------------------------------------
+// Teacher-Student Mission Assignment
+// --------------------------------------------------------
+
+model TeacherMissionAssignment {
+  id         String    @id @default(uuid())
+  teacherId  String
+  studentId  String
+  missionId  String
+  assignedAt DateTime  @default(now())
+  dueDate    DateTime?
+  notes      String?
+
+  teacher    User      @relation("TeacherMissionAssignments", fields: [teacherId], references: [id], onDelete: Cascade)
+  student    User      @relation("StudentMissionAssignments", fields: [studentId], references: [id], onDelete: Cascade)
+  mission    Mission   @relation(fields: [missionId], references: [id], onDelete: Cascade)
+
+  @@unique([teacherId, studentId, missionId])
+  @@index([teacherId])
+  @@index([studentId])
+  @@index([missionId])
+  @@map("teacher_mission_assignments")
+}
+
+// --------------------------------------------------------
+// Simulation Run (Gameplay Session Records)
+// --------------------------------------------------------
+
+model SimulationRun {
+  id                  String   @id @default(uuid())
+  userId              String
+  villageId           String
+  initialStorage      Float    // Starting water volume in m3 (simulation units)
+  finalStorage        Float    // Ending water volume in m3 (simulation units)
+  rainfall            Float    // Cumulative simulated rainfall in mm
+  recharge            Float    // Total simulated recharge gained in m3
+  extraction          Float    // Total simulated agricultural/domestic extraction in m3
+  losses              Float    // Total evaporative/baseflow losses in m3
+  sustainabilityScore Float    // Composite educational rating (0.0 to 100.0)
+  createdAt           DateTime @default(now())
+
+  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  village            Village             @relation(fields: [villageId], references: [id], onDelete: Cascade)
+  groundwaterRecords GroundwaterRecord[]
+
+  @@index([userId])
+  @@index([villageId])
+  @@index([createdAt])
+  @@map("simulation_runs")
+}
+
+// --------------------------------------------------------
+// Groundwater Record (Simulation State Snapshots)
+// --------------------------------------------------------
+
+model GroundwaterRecord {
+  id                String   @id @default(uuid())
+  villageId         String
+  simulationRunId   String?
+  storageIndex      Float    // Normalized aquifer saturation index (0.00 to 1.00)
+  recharge          Float    // Inflow step rate in m3/tick
+  extraction        Float    // Outflow step rate in m3/tick
+  waterQualityIndex Float    // Simulated water quality index (0.0 to 100.0)
+  recordedAt        DateTime @default(now())
+
+  village       Village        @relation(fields: [villageId], references: [id], onDelete: Cascade)
+  simulationRun SimulationRun? @relation(fields: [simulationRunId], references: [id], onDelete: SetNull)
+
+  @@index([villageId, recordedAt])
+  @@index([simulationRunId])
+  @@map("groundwater_records")
+}

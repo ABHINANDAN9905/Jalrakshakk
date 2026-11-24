@@ -1,0 +1,44 @@
+{
+  "name": "jalrakshak-backend",
+  "version": "1.0.0",
+  "description": "Backend API and simulation engine for JalRakshak groundwater conservation platform",
+  "private": true,
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js",
+    "test": "node --test tests/integration/health.test.js tests/unit/auth.test.js tests/unit/mongoose-models.test.js tests/unit/phase6-validation.test.js tests/unit/phase7-engine.test.js tests/unit/phase8-gamification.test.js tests/unit/phase10-ai-mentor.test.js tests/unit/phase11-gamification-frontend.test.js tests/unit/phase12-teacher-dashboard.test.js tests/unit/phase13-admin-dashboard.test.js tests/unit/phase14-analytics.test.js tests/unit/phase15-notifications.test.js tests/integration/auth-routes.test.js tests/integration/mongo-routes.test.js tests/integration/phase6-management.test.js tests/integration/phase7-simulation-routes.test.js tests/integration/phase8-gamification-routes.test.js tests/integration/phase10-realtime-mentor-routes.test.js tests/integration/phase11-gamification-routes.test.js tests/integration/phase12-teacher-routes.test.js tests/integration/phase13-admin-routes.test.js tests/integration/phase14-analytics-routes.test.js tests/integration/phase15-notification-routes.test.js",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:migrate:deploy": "prisma migrate deploy",
+    "prisma:seed": "node prisma/seed.js",
+    "prisma:studio": "prisma studio",
+    "db:verify": "node scripts/verify-db.js",
+    "db:status": "node -e \"import('./src/config/database.js').then(m => m.connectDatabase()).then(() => { console.log('DB OK'); process.exit(0); }).catch(e => { console.error('DB FAIL', e.message); process.exit(1); })\""
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.3",
+    "bcrypt": "^5.1.1",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-rate-limit": "^8.7.5",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.12.3",
+    "morgan": "^1.10.0",
+    "openai": "^6.49.0",
+    "socket.io": "^4.8.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9",
+    "prisma": "^6.19.3",
+    "supertest": "^7.0.0"
+  }
+}

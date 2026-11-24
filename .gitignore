@@ -1,0 +1,73 @@
+# ==========================================
+# JalRakshak Root Git Exclusion Policy
+# ==========================================
+
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Production Builds
+dist/
+dist-ssr/
+build/
+out/
+.next/
+
+# Environment and Secret Files
+.env
+.env.development.local
+.env.test.local
+.env.production.local
+.env.local
+*.env
+!*.env.example
+
+# Runtime & Diagnostics
+logs/
+*.log
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage & Testing
+coverage/
+.nyc_output/
+*.lcov
+.vitest/
+
+# IDE & Editor Artifacts
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Database & Cache Artifacts
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+.prisma/client
+mongo-data/
+postgres-data/
+
+# OS and Temporary Files
+tmp/
+temp/
+*.tmp
+*.bak
+*.swp
+*.patch
